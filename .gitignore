@@ -25,3 +25,5 @@ infra/
 .wrangler/
 
 .openai/
+docs/SUBMISSION.md
+docs/VALIDATION.md

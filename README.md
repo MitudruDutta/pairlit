@@ -4,7 +4,7 @@
 
 ### Two public profiles. One thoughtful agent. A first conversation worth watching.
 
-[Live website](https://pairlit-social.mitudrudutta72.workers.dev) · [Submission details](docs/SUBMISSION.md) · [Architecture](ARCHITECTURE.md) · [Validation](docs/VALIDATION.md)
+[Live website](https://pairlit-social.mitudrudutta72.workers.dev) · [Architecture](ARCHITECTURE.md)
 
 **Next.js · FastAPI · SQLite · Ollama · Apify · Cloudflare Workers + D1 + Workers AI**
 
@@ -39,15 +39,15 @@ flowchart LR
     Browser[Next.js browser experience] --> API[FastAPI API]
     API --> Engine[Durable job engine]
     Engine --> Sources[Source validation and sanitization]
-    Sources --> LI[Apify LinkedIn scraper\nNo-email mode]
-    Sources --> IG[Apify Instagram scraper\nPublic accounts only]
-    Engine --> Model[Ollama\nQwen3.5 4B]
-    Engine <--> DB[(SQLite WAL\nProfiles · Jobs · Dates)]
-    Model --> Evidence[Evidence validation\nReal source quotes]
+    Sources --> LI[Apify LinkedIn scraper<br/>No-email mode]
+    Sources --> IG[Apify Instagram scraper<br/>Public accounts only]
+    Engine --> Model[Ollama<br/>Qwen3.5 4B]
+    Engine <--> DB[(SQLite WAL<br/>Profiles · Jobs · Dates)]
+    Model --> Evidence[Evidence validation<br/>Real source quotes]
     Evidence --> DB
-    DB --> Rankings[Directional ranking\nand scenario comparison]
+    DB --> Rankings[Directional ranking<br/>and scenario comparison]
     Rankings --> API
-    Search[Live search discovery\nURL location only] --> Sources
+    Search[Live search discovery<br/>URL location only] --> Sources
 ```
 
 Search is used only to locate official URLs. Search snippets, other websites, third-party comments and contact enrichment never become profile-analysis sources. Retrieved public portraits are cached from source CDN URLs.
@@ -60,7 +60,7 @@ sequenceDiagram
     participant Web as Next.js
     participant API as FastAPI / Engine
     participant Source as Apify
-    participant LLM as Qwen via Ollama
+    participant LLM as LLM (Ollama or Workers AI)
     participant DB as SQLite
     User->>Web: Paste LinkedIn + public Instagram
     Web->>API: Create profile
@@ -69,7 +69,7 @@ sequenceDiagram
     API->>API: Validate visibility and matching identity
     API->>LLM: Analyze numbered source excerpts
     LLM-->>API: Traits with evidence IDs
-    API->>API: Copy real quotes; validate both-source coverage
+    API->>API: Copy real quotes and validate both-source coverage
     API->>DB: Save grounded profile analysis
     API-->>Web: Profile page with evidence
     User->>Web: Choose two agents and a setting
@@ -159,7 +159,7 @@ npm run build
 
 The backend suite verifies URL boundaries, private-account rejection, account identity, quote grounding, provider reuse and budget enforcement, the API contract, four independent agent calls, resume behavior, immutable date evidence, atomic concurrent updates, directional ranking and scenario comparison. Test fixtures are fictional and isolated from the live database.
 
-Release checks also exercise the actual public browser experience: duplicate import, profile evidence, all-person rankings, completed conversations, turn provenance, search and mobile overflow. Live two-source extraction and local model calls are verified separately. See [validation evidence](docs/VALIDATION.md).
+Release checks also exercise the actual public browser experience: duplicate import, profile evidence, all-person rankings, completed conversations, turn provenance, search and mobile overflow. Live two-source extraction and local model calls are verified separately.
 
 ## Repository layout
 
@@ -168,11 +168,7 @@ apps/web/           Next.js frontend and static export configuration
 backend/pairlit/    API, job engine, source adapters, model harness and persistence
 cloudflare/         Cloud hosting build and API gateway
 tests/              Isolated contract and pipeline tests
-docs/               Submission information, validation and website screenshot
+docs/images/        Website screenshot
 ```
 
 Private provider records, database files, credentials and video artifacts are excluded from publication. The retired coordination prototype is archived locally and is not part of Pairlit's runtime or public repository.
-
-## Submission
-
-The [submission guide](docs/SUBMISSION.md) contains the explanation under 200 characters, extraction stack and video order. The recorded walkthrough must be uploaded to YouTube separately; its duration must remain below three minutes.
