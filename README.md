@@ -1,61 +1,154 @@
-# Pairlit
+<div align="center">
 
-Pairlit is an agent dating experiment built from exactly two public sources per person: LinkedIn and public Instagram. It finds real public-facing creators through live search, verifies matching official accounts, builds evidence-backed profiles, lets separate agents converse, and produces directional rankings.
+# Pairlit Social
 
-The Chemistry Lab shows both agents' independent assessments and lets the same pair meet in different settings. A high assessment from one agent cannot conceal a lower assessment from the other. These are fictional public-profile simulations, not claims that the depicted people participated or are romantically available.
+### Two public profiles. One thoughtful agent. A first conversation worth watching.
+
+[Live website](https://pairlit-social.mitudrudutta72.workers.dev) · [Submission details](docs/SUBMISSION.md) · [Architecture](ARCHITECTURE.md) · [Validation](docs/VALIDATION.md)
+
+**Next.js · FastAPI · SQLite · Ollama · Apify · Cloudflare Workers + D1 + Workers AI**
+
+</div>
+
+![Pairlit Social website showing the real public-source agent workspace](docs/images/website.png)
+
+Pairlit Social explores whether agents can discover conversational compatibility by actually talking. Each person is represented by an agent grounded in exactly two sources: their public LinkedIn profile and matching public Instagram account. The agent analyzes supported interests, hobbies, expressed professional priorities and public qualities, then meets other agents in fictional settings.
+
+The finished example contains **26 dynamically discovered public-source profiles**, **26 analyzed agents**, and India-based profiles. Candidates are retrieved from live sources, never a hardcoded roster. The website displays live database counts rather than these documentation values.
+
+> Dates are fictional public-profile simulations. They do not imply that the depicted people joined a dating service, consented to a real-world date, or are romantically available. Conversational-fit estimates are heuristic, not probabilities of romantic success.
+
+## Explore the experience
+
+| Feature | What happens |
+|---|---|
+| Two-link import | Paste LinkedIn and public Instagram URLs; validate profile URLs, visibility and account identity. |
+| Evidence-backed profiles | Read interests, hobbies, expressed priorities and qualities alongside their actual source quotes. Unsupported needs remain unknown. |
+| Independent agents | Four separate alternating model calls create a conversation; each agent reacts to the preceding turns. |
+| Live date room | Follow actual job progress, messages, source evidence, reflections and remaining curiosities. |
+| Chemistry Lab | Meet again in different settings; compare both agents' assessments, their gap and the lower mutual assessment. |
+| Individual rankings | Rank every other ready agent; distinguish completed dates from undated profile comparisons. |
+| Durable execution | Persist progress in SQLite, deduplicate repeated requests and resume failed dates from their missing turn. |
+
+All 26 ready agents in the submitted example have completed conversations. This does not mean every possible pair has dated; the interface makes that distinction explicit.
+
+## Architecture
+
+```mermaid
+flowchart LR
+    Browser[Next.js browser experience] --> API[FastAPI API]
+    API --> Engine[Durable job engine]
+    Engine --> Sources[Source validation and sanitization]
+    Sources --> LI[Apify LinkedIn scraper\nNo-email mode]
+    Sources --> IG[Apify Instagram scraper\nPublic accounts only]
+    Engine --> Model[Ollama\nQwen3.5 4B]
+    Engine <--> DB[(SQLite WAL\nProfiles · Jobs · Dates)]
+    Model --> Evidence[Evidence validation\nReal source quotes]
+    Evidence --> DB
+    DB --> Rankings[Directional ranking\nand scenario comparison]
+    Rankings --> API
+    Search[Live search discovery\nURL location only] --> Sources
+```
+
+Search is used only to locate official URLs. Search snippets, other websites, third-party comments and contact enrichment never become profile-analysis sources. Retrieved public portraits are cached from source CDN URLs.
+
+## Agent flow
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Web as Next.js
+    participant API as FastAPI / Engine
+    participant Source as Apify
+    participant LLM as Qwen via Ollama
+    participant DB as SQLite
+    User->>Web: Paste LinkedIn + public Instagram
+    Web->>API: Create profile
+    API->>Source: Retrieve exactly two public profiles
+    Source-->>API: Source snapshots
+    API->>API: Validate visibility and matching identity
+    API->>LLM: Analyze numbered source excerpts
+    LLM-->>API: Traits with evidence IDs
+    API->>API: Copy real quotes; validate both-source coverage
+    API->>DB: Save grounded profile analysis
+    API-->>Web: Profile page with evidence
+    User->>Web: Choose two agents and a setting
+    Web->>API: Start simulated date
+    API->>DB: Freeze each agent's analysis snapshot
+    loop Four alternating turns
+        API->>LLM: Own traits + partner themes + previous dialogue
+        LLM-->>API: Next message + evidence + assessment
+        API->>DB: Persist validated turn
+        Web->>API: Poll actual progress
+        API-->>Web: Conversation so far
+    end
+    User->>Web: Open rankings / Chemistry Lab
+    Web->>API: Request directional results
+    API-->>Web: Scores, basis, evidence and uncertainty
+```
+
+Agent responses are generated by the configured model, not canned scripts. Saved dates replay their original messages. Immutable analysis snapshots retain the evidence that informed a date even if a profile is analyzed again.
+
+### How rankings work
+
+Undated pairs receive a lexical comparison of supported public themes. Completed pairs combine this comparison (**40%**) with the current agent's average conversation assessment across completed settings (**60%**). Rankings exclude the current person and are directional: A's assessment of B may differ from B's assessment of A.
+
+The Chemistry Lab displays both assessments, their gap and their minimum as mutual conversational fit. Multiple settings show observed variation; a single setting cannot establish consistency. At 25 agents, exhaustive coverage would require 300 dates and 1,200 model calls. The default round prioritizes shared public themes and explores a contrasting perspective instead.
 
 ## Run locally
 
-1. Activate the Python environment:
-   ```bash
-   source ~/python/bin/activate
-   ```
-2. Install dependencies:
-   ```bash
-   python -m pip install -e '.[test]'
-   cd apps/web
-   npm ci
-   npm run build
-   cd ../..
-   ```
-3. Copy `.env.example` to `.env`. Set `APIFY_TOKEN` locally. Never commit credentials. Configure an extraction ceiling that fits your existing provider credits.
-4. Start Ollama and install the configured model:
-   ```bash
-   ollama pull qwen3.5:4b
-   ```
-5. Start the website:
-   ```bash
-   PYTHONPATH=backend python -m pairlit.cli serve
-   ```
-   Open `http://127.0.0.1:8000`.
-6. Paste your own LinkedIn and public Instagram links. Confirm ownership or permission. Watch retrieval and analysis progress, inspect source evidence, choose two ready agents, start a date, and then view rankings.
-
-## Prepare a real demonstration
+**Prerequisites:** Python 3.11+, Node.js 22, Ollama, and an Apify account with existing extraction credits.
 
 ```bash
-PYTHONPATH=backend python infra/discover.py --target 25
-PYTHONPATH=backend python infra/discover.py --reuse --target 25
-PYTHONPATH=backend python infra/cache_portraits.py
-PYTHONPATH=backend python infra/prepare_demo.py --target 25
+source ~/python/bin/activate
+python -m pip install -e '.[test]'
+cp .env.example .env
 ```
 
-Discovery queries are generated from themes, never a fixed list of people. You can change `--themes` to public professional categories or geographical search terms. LinkedIn's source location is displayed when available; nationality is never inferred from names. The free LinkedIn actor limits a run to ten profiles, so batches contain at most ten.
+Set `APIFY_TOKEN` in `.env` locally. Keep credentials out of Git and configure the extraction ceiling to fit your existing credits.
 
-The discovery pipeline admits public Instagram accounts only, requires matching public names and a self-published LinkedIn cross-link, and uses established public-facing accounts for the demonstration. Third-party search snippets locate URLs but do not enter analysis. The source data and database remain private local files; public site responses contain sanitized profile evidence rather than contact enrichment.
+```bash
+ollama pull qwen3.5:4b
+cd apps/web
+npm ci
+npm run build
+cd ../..
+PYTHONPATH=backend python -m pairlit.cli serve
+```
 
-Re-running the same extraction reuses its existing Apify run. A uncertain provider-start outcome requires review instead of silently starting another paid run. Budget reservations remain in force until an actor finishes. No paid-plan upgrade is performed.
+Open **http://127.0.0.1:8000**. Paste matching public profile links, acknowledge the fictional simulation, inspect the profile analysis, start a date and view rankings.
 
-## What the model does
+### Prepare a real example
 
-The server extracts numbered excerpts from the two retrieved snapshots. The local Qwen model selects traits and evidence IDs. The server copies the actual quote and source, validates both-source coverage, and rejects unsupported evidence references or restricted personal inferences. Unknown romantic needs remain unknown.
+First discover real profiles:
 
-Each date contains four separate alternating model invocations. An agent sees its own supported traits, the existing transcript and the fictional setting. Every turn has evidence IDs. Its final turn includes its own fit estimate, reflection and remaining curiosity. Failed dates resume at the first missing turn.
+```bash
+PYTHONPATH=backend python -m pairlit.discovery --target 25
+PYTHONPATH=backend python -m pairlit.portraits
+PYTHONPATH=backend python -m pairlit.cli analyze --limit 25
+# Then start the API and use “Let every agent meet someone” in the date room.
+```
 
-Rankings exclude the current person and cover every other ready profile. Undated pairs show a lexical public-theme comparison. Dated pairs combine that comparison (40%) with the agent's average assessment across completed settings (60%). These heuristic scores are not calibrated probabilities of romantic success. The Chemistry Lab reports both directions, their gap and the lower assessment as mutual conversational fit.
+Discovery queries are generated from themes, not names. Customize `--themes` with professional categories or geographical search terms. Demo admission requires a self-published LinkedIn-to-Instagram cross-link, matching public names, a public Instagram account and an established public-facing account. Location is displayed from LinkedIn when available; nationality is not inferred.
 
-The initial date round provides every ready agent with conversations. It does not imply every possible pair has dated; the interface labels this distinction. For exhaustive coverage, an operator may use `python -m pairlit.cli dates --all-pairs` while the API is stopped. At 25 people, exhaustive coverage means 300 dates and 1,200 model invocations.
+```bash
+# Reuse completed provider datasets instead of repeating extraction.
+PYTHONPATH=backend python -m pairlit.discovery --reuse --cached-only --target 25
+```
 
-## Tests
+LinkedIn extraction uses `harvestapi/linkedin-profile-scraper` in **Profile details no email** mode, with at most ten profiles per run. Instagram uses `apify/instagram-profile-scraper`. Discovery uses `apify/google-search-scraper` without lead enrichment. Run fingerprints prevent repeated extraction. Budget reservations remain active until completion; uncertain provider-start outcomes require operator review instead of silently starting another run.
+
+### Container deployment
+
+```bash
+docker compose up --build
+```
+
+The container serves both the exported frontend and API. SQLite lives in the mounted `data/private` directory. Ollama must be reachable at the configured URL; the example Compose file points to the host. Secrets remain server-side.
+
+The public website runs on Cloudflare Workers (`cloudflare/`), with D1 for storage and Workers AI (`@cf/meta/llama-3.1-8b-instruct-fast`) for agent turns. Build and deploy with `npm run build` then `npx wrangler deploy -c cloudflare/wrangler.json`.
+
+## Verification
 
 ```bash
 python -m pytest -q
@@ -64,14 +157,22 @@ npm run typecheck
 npm run build
 ```
 
-Tests cover strict profile URL validation, private account rejection, source identity, quote grounding, the real API contract with isolated test doubles, four independent agent turns, deduplication, resume behavior, budget enforcement, directional rankings and scenario comparison. Fictional test fixtures never populate the live database. Browser verification uses the actual local application; scraping and model checks are separately performed against live services.
+The backend suite verifies URL boundaries, private-account rejection, account identity, quote grounding, provider reuse and budget enforcement, the API contract, four independent agent calls, resume behavior, immutable date evidence, atomic concurrent updates, directional ranking and scenario comparison. Test fixtures are fictional and isolated from the live database.
 
-## Stack
+Release checks also exercise the actual public browser experience: duplicate import, profile evidence, all-person rankings, completed conversations, turn provenance, search and mobile overflow. Live two-source extraction and local model calls are verified separately. See [validation evidence](docs/VALIDATION.md).
 
-Next.js 16 / React 19 / TypeScript frontend; FastAPI / Pydantic / SQLite backend; Ollama with Qwen3.5 4B. Apify actors: `apify/google-search-scraper` for discovery, `harvestapi/linkedin-profile-scraper` in no-email mode, and `apify/instagram-profile-scraper` for public Instagram. Public portraits are cached from those sources' CDN URLs.
+## Repository layout
 
-`archive/coordination` holds the retired Kindweft implementation and private data. It is excluded from builds and publication. Gmail, Calendar, Telegram and Composio are not dependencies of Pairlit.
+```text
+apps/web/           Next.js frontend and static export configuration
+backend/pairlit/    API, job engine, source adapters, model harness and persistence
+cloudflare/         Cloud hosting build and API gateway
+tests/              Isolated contract and pipeline tests
+docs/               Submission information, validation and website screenshot
+```
+
+Private provider records, database files, credentials and video artifacts are excluded from publication. The retired coordination prototype is archived locally and is not part of Pairlit's runtime or public repository.
 
 ## Submission
 
-See `docs/SUBMISSION.md` for the 200-character explanation, technical section, video outline and publication checklist. Public links and release evidence must be verified before submission. A temporary tunnel is a test/demo URL, not durable production hosting.
+The [submission guide](docs/SUBMISSION.md) contains the explanation under 200 characters, extraction stack and video order. The recorded walkthrough must be uploaded to YouTube separately; its duration must remain below three minutes.

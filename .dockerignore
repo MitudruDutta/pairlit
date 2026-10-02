@@ -1,0 +1,13 @@
+archive
+.env*
+data
+.git
+.agents
+.codex
+.aws
+apps/web/node_modules
+apps/web/.next
+apps/web/out
+__pycache__
+.pytest_cache
+docs/artifacts

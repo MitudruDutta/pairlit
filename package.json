@@ -1,0 +1,9 @@
+{
+  "name": "pairlit-social-hosting",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "npm --prefix apps/web ci && npm --prefix apps/web run build && node cloudflare/build.mjs",
+    "test:gateway": "node --test tests/gateway.test.mjs"
+  }
+}
